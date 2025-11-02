@@ -56,7 +56,7 @@ def draw_ta_diagram(filename, is_residential=False):
     if is_residential:
         label_off_on = "p ∉ {P2,P3,P6} AND (n_j = 0)\nAND (T_j ≤ T_r)"
         label_on_off = "p ∈ {P2,P3,P6} OR (n_j = 1)\nOR (T_j > T_r)"
-        footer = "Residential: forced-OFF P2,P3,P6; neighbor override n_j=1 (attached office ON)"
+        footer = "Residential: forced-OFF P2,P3,P6; neighbor override n_j=1 (attached office ON)."
     else:
         label_off_on = "p ∉ {P5,P6} AND (T_i ≤ T_r)"
         label_on_off = "p ∈ {P5,P6} OR (T_i > T_r)"
@@ -106,23 +106,32 @@ def compute_pump_commands(T1, T2, Tref):
     y1, y2 = [], []
     for k in range(6):
         # Office rules
-        if k in [4,5]:
+        if k in (4, 5):  # P5,P6 forced OFF
             y1_k = 0
         else:
             y1_k = 1 if T1[k] <= Tref else 0
         y1.append(y1_k)
 
         # Residential rules
-        if k in [1,2,5]:
+        if k in (1, 2, 5):  # P2,P3,P6 forced OFF
             y2_k = 0
         else:
-            n2 = y1_k  # neighbor effect
-            if n2 == 1:
+            n2 = y1_k  # attached office pump state this period
+            if n2 == 1:           # override: office ON -> residential OFF
                 y2_k = 0
             else:
                 y2_k = 1 if T2[k] <= Tref else 0
         y2.append(y2_k)
     return np.array(y1), np.array(y2)
+
+
+def _shade_forced_bands(ax):
+    """Top thin band: office forced OFF (P5,P6). Bottom thin band: residential forced OFF (P2,P3,P6)."""
+    # Office forced OFF: [16,24] (22–06) -> draw near top
+    ax.axvspan(16, 24, ymin=0.68, ymax=1.0, alpha=0.10)
+    # Residential forced OFF: [4,12] (10–18) and [20,24] (02–06) -> draw near bottom
+    ax.axvspan(4, 12,  ymin=0.00, ymax=0.32, alpha=0.10)
+    ax.axvspan(20, 24, ymin=0.00, ymax=0.32, alpha=0.10)
 
 
 def draw_temperature_plot(filename, T1, T2, Tref):
@@ -135,10 +144,7 @@ def draw_temperature_plot(filename, T1, T2, Tref):
     ax.plot(t_rel, T2, marker='o', label="Residential 2")
     ax.axhline(Tref, linestyle='--', linewidth=1, label="T_r")
 
-    # Shade forced-off windows
-    ax.axvspan(16, 24, alpha=0.08)
-    ax.axvspan(4, 12, alpha=0.08)
-    ax.axvspan(20, 24, alpha=0.08)
+    _shade_forced_bands(ax)
 
     ax.set_xlim(0, 24)
     ax.set_xlabel("Time since 06:00 [h]")
@@ -160,10 +166,7 @@ def draw_pump_states(filename, y1, y2):
     ax.step(t_edges, np.r_[y1, y1[-1]], where='post', label="Office 1")
     ax.step(t_edges, np.r_[y2, y2[-1]], where='post', label="Residential 2")
 
-    # Shaded forced-off windows
-    ax.axvspan(16, 24, alpha=0.08)
-    ax.axvspan(4, 12,  alpha=0.08)
-    ax.axvspan(20, 24, alpha=0.08)
+    _shade_forced_bands(ax)
 
     ax.set_xlim(0, 24)
     ax.set_ylim(-0.15, 1.15)
@@ -186,8 +189,8 @@ draw_forced_windows("q3_2_forced_windows.png")
 
 # ---------- Generate Q3.4 plots ----------
 Tref = 21.0
-T1 = np.array([20.0, 22.0, 21.5, 20.0, 20.0, 20.0])
-T2 = np.array([20.5, 20.0, 22.0, 20.0, 20.0, 20.0])
+T1 = np.array([20.0, 22.0, 21.5, 20.0, 20.0, 20.0])         # Office 1
+T2 = np.array([20.5, 20.0, 22.0, 20.0, 20.0, 20.0])         # Residential 2
 y1, y2 = compute_pump_commands(T1, T2, Tref)
 
 draw_temperature_plot("q3_4_temperature.png", T1, T2, Tref)
