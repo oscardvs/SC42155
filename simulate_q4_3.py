@@ -332,9 +332,11 @@ fig2.savefig(os.path.join(OUTDIR, "building_temperatures.pdf"))
 plt.close(fig2)
 
 # ----------------------------
-# Figure 3: hydro level and power (combined legend below)
+# Figure 3: hydro level and power (combined legend below; no subplots_adjust)
 # ----------------------------
-fig3, ax1 = plt.subplots(figsize=(7.0, 3.0))
+fig3, ax1 = plt.subplots(figsize=(7.0, 3.0))  # constrained_layout is ON globally
+
+# Reservoir level (left axis)
 l_h, = ax1.plot(th, HH, color="#2e7d32", lw=2.0, label="Level h [m]")
 ax1.axhline(h_min, color="k", ls="--", lw=0.8, alpha=0.6)
 ax1.axhline(h_max, color="k", ls="--", lw=0.8, alpha=0.6)
@@ -342,18 +344,25 @@ ax1.set_xlabel("Time [h]")
 ax1.set_ylabel("Level h [m]")
 ax1.grid(True, ls=":", lw=0.6)
 
+# Power (right axis)
 ax2 = ax1.twinx()
 l_ph, = ax2.plot(th, PP_hydro, color="#1976d2", lw=2.0, label="Hydro power used [kW]")
-l_pd, = ax2.step(th, np.full_like(th, P_req), where="post", color="#6d4c41", lw=1.2, label="Pump demand (reference) [kW]")
+# show pump demand reference as a thin step line
+l_pd, = ax2.step(th, np.full_like(th, P_req), where="post", color="#6d4c41", lw=1.2,
+                 label="Pump demand (reference) [kW]")
 ax2.set_ylabel("Power [kW]")
 
+# One combined legend below the axes (centered). No subplots_adjust needed.
 handles = [l_h, l_ph, l_pd]
 labels  = [h_.get_label() for h_ in handles]
-ax1.legend(handles, labels, loc="upper center", bbox_to_anchor=(0.5, -0.16), ncol=2, frameon=True)
-fig3.subplots_adjust(bottom=0.25)
+ax1.legend(handles, labels,
+           loc="upper center", bbox_to_anchor=(0.5, -0.12),  # push just below the axis
+           ncol=2, frameon=True, columnspacing=1.2, handlelength=2.2)
+
 ax1.set_title("Reservoir level and power split")
 fig3.savefig(os.path.join(OUTDIR, "hydro_level_power_split.pdf"))
 plt.close(fig3)
+
 
 # ----------------------------
 # Figure 4: supervisor signals (legend above)
