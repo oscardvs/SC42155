@@ -12,20 +12,31 @@ OUTDIR.mkdir(parents=True, exist_ok=True)
 if os.environ.get("DISPLAY", "") == "":
     matplotlib.use("Agg")
 
-# Enable constrained layout to avoid tight_layout warnings
+# Enable constrained layout globally for normal plots
 matplotlib.rcParams['figure.constrained_layout.use'] = True
 
 # ---------- Helper ----------
 def save_fig(fig, filename):
-    """Save figure to OUTDIR with proper bounding box."""
-    fig.savefig(OUTDIR / filename, dpi=200, bbox_inches="tight")
+    """Save figure to OUTDIR while avoiding CL vs bbox_inches conflicts."""
+    try:
+        is_cl = getattr(fig, "get_constrained_layout", lambda: False)()
+    except Exception:
+        is_cl = False
+
+    if is_cl:
+        # Let constrained_layout handle spacing; don't also ask for 'tight' cropping.
+        fig.savefig(OUTDIR / filename, dpi=200)
+    else:
+        # For figures without constrained layout (e.g., TA with axis off), crop tightly.
+        fig.savefig(OUTDIR / filename, dpi=200, bbox_inches="tight", pad_inches=0.02)
     plt.close(fig)
 
 # ---------- Drawing functions ----------
 
 def draw_ta_diagram(filename, is_residential=False):
     """Draw 2-state timed automaton for pump ON/OFF transitions."""
-    fig, ax = plt.subplots(figsize=(11, 6.5), constrained_layout=True)
+    # IMPORTANT: CL off here to avoid 'axes sizes collapsed to zero' when axis is off
+    fig, ax = plt.subplots(figsize=(11, 6.5), constrained_layout=False)
     ax.set_aspect('equal')
     ax.axis('off')
 
@@ -116,7 +127,7 @@ def compute_pump_commands(T1, T2, Tref):
         if k in (1, 2, 5):  # P2,P3,P6 forced OFF
             y2_k = 0
         else:
-            n2 = y1_k  # attached office pump state this period
+            n2 = y1_k  # attached office pump this period
             if n2 == 1:           # override: office ON -> residential OFF
                 y2_k = 0
             else:
@@ -127,11 +138,9 @@ def compute_pump_commands(T1, T2, Tref):
 
 def _shade_forced_bands(ax):
     """Top thin band: office forced OFF (P5,P6). Bottom thin band: residential forced OFF (P2,P3,P6)."""
-    # Office forced OFF: [16,24] (22–06) -> draw near top
-    ax.axvspan(16, 24, ymin=0.68, ymax=1.0, alpha=0.10)
-    # Residential forced OFF: [4,12] (10–18) and [20,24] (02–06) -> draw near bottom
-    ax.axvspan(4, 12,  ymin=0.00, ymax=0.32, alpha=0.10)
-    ax.axvspan(20, 24, ymin=0.00, ymax=0.32, alpha=0.10)
+    ax.axvspan(16, 24, ymin=0.68, ymax=1.0, alpha=0.10)  # Office P5,P6
+    ax.axvspan(4, 12,  ymin=0.00, ymax=0.32, alpha=0.10) # Residential P2,P3
+    ax.axvspan(20, 24, ymin=0.00, ymax=0.32, alpha=0.10) # Residential P6
 
 
 def draw_temperature_plot(filename, T1, T2, Tref):
@@ -189,8 +198,8 @@ draw_forced_windows("q3_2_forced_windows.png")
 
 # ---------- Generate Q3.4 plots ----------
 Tref = 21.0
-T1 = np.array([20.0, 22.0, 21.5, 20.0, 20.0, 20.0])         # Office 1
-T2 = np.array([20.5, 20.0, 22.0, 20.0, 20.0, 20.0])         # Residential 2
+T1 = np.array([20.0, 22.0, 21.5, 20.0, 20.0, 20.0])  # Office 1
+T2 = np.array([20.5, 20.0, 22.0, 20.0, 20.0, 20.0])  # Residential 2
 y1, y2 = compute_pump_commands(T1, T2, Tref)
 
 draw_temperature_plot("q3_4_temperature.png", T1, T2, Tref)
